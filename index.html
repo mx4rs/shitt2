@@ -1,0 +1,1555 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FormworkCalc - ИИ-интегрированный калькулятор опалубки</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom styles for canvas and specific components */
+        .canvas-container {
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .loading-spinner {
+            border: 3px solid #f3f4f6;
+            border-top: 3px solid #3b82f6;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .panel-color-1 { background-color: #fef3c7; border-color: #f59e0b; }
+        .panel-color-2 { background-color: #dbeafe; border-color: #3b82f6; }
+        .panel-color-3 { background-color: #dcfce7; border-color: #10b981; }
+        .panel-color-4 { background-color: #fce7f3; border-color: #ec4899; }
+        .panel-color-5 { background-color: #e0e7ff; border-color: #6366f1; }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Header -->
+    <header class="bg-blue-600 text-white shadow-lg">
+        <div class="container mx-auto px-4 py-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-2xl md:text-3xl font-bold">FormworkCalc</h1>
+                    <p class="text-blue-100 text-sm md:text-base">ИИ-интегрированный калькулятор опалубки</p>
+                </div>
+                <div class="text-right">
+                    <div class="text-sm text-blue-100">Для строительных специалистов</div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Application Container -->
+    <main class="container mx-auto px-4 py-6 max-w-7xl">
+        <!-- Progress Indicator -->
+        <div class="mb-6">
+            <div class="flex items-center justify-between text-sm text-gray-600 mb-2">
+                <span>Конфигурация</span>
+                <span>Анализ</span>
+                <span>Результаты</span>
+            </div>
+            <div class="w-full bg-gray-200 rounded-full h-2">
+                <div id="progress-bar" class="bg-blue-600 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+            </div>
+        </div>
+
+        <!-- Input Data Section -->
+        <section id="input-section" class="grid md:grid-cols-2 gap-6 mb-8">
+            <!-- API Configuration Card -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-xl font-semibold mb-4 text-gray-800">Настройка API</h2>
+                <div class="space-y-4">
+                    <div>
+                        <label for="api-key" class="block text-sm font-medium text-gray-700 mb-2">
+                            Ключ API OpenRouter
+                        </label>
+                        <div class="relative">
+                            <input 
+                                type="password" 
+                                id="api-key" 
+                                placeholder="Введите ваш ключ API OpenRouter"
+                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            >
+                            <button 
+                                type="button" 
+                                id="toggle-api-key" 
+                                class="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600"
+                            >
+                                👁️
+                            </button>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-1">
+                            Ваш ключ API хранится локально и никогда не передается третьим лицам
+                        </p>
+                    </div>
+                    <div class="flex items-center">
+                        <div id="api-status" class="flex items-center space-x-2">
+                            <div class="w-3 h-3 bg-gray-300 rounded-full"></div>
+                            <span class="text-sm text-gray-600">Ключ API не настроен</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Foundation Configuration Card -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-xl font-semibold mb-4 text-gray-800">Настройка фундамента</h2>
+                <div class="space-y-4">
+                    <div>
+                        <label for="foundation-type" class="block text-sm font-medium text-gray-700 mb-2">
+                            Тип фундамента
+                        </label>
+                        <select 
+                            id="foundation-type" 
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        >
+                            <option value="strip">Ленточный фундамент</option>
+                            <option value="slab">Плитный фундамент</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="foundation-depth" class="block text-sm font-medium text-gray-700 mb-2">
+                            Глубина фундамента (мм)
+                        </label>
+                        <input 
+                            type="number" 
+                            id="foundation-depth" 
+                            min="100" 
+                            max="5000" 
+                            value="1000"
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        >
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Blueprint Upload Section -->
+        <section class="bg-white rounded-lg shadow-md p-6 mb-8">
+            <h2 class="text-xl font-semibold mb-4 text-gray-800">Анализ чертежа</h2>
+            <div class="grid md:grid-cols-2 gap-6">
+                <!-- Upload Area -->
+                <div>
+                    <div 
+                        id="upload-area" 
+                        class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-400 transition-colors cursor-pointer"
+                    >
+                        <div id="upload-content">
+                            <svg class="mx-auto h-12 w-12 text-gray-400 mb-4" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                                <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                            </svg>
+                            <p class="text-lg text-gray-600 mb-2">Перетащите чертеж сюда</p>
+                            <p class="text-sm text-gray-400">или нажмите для выбора</p>
+                            <p class="text-xs text-gray-400 mt-2">PNG, JPEG до 10МБ</p>
+                        </div>
+                        <input type="file" id="blueprint-file" accept="image/*" class="hidden">
+                    </div>
+                    
+                    <!-- Action Buttons -->
+                    <div class="mt-4 space-y-2">
+                        <button 
+                            id="analyze-blueprint" 
+                            class="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+                            disabled
+                        >
+                            <span id="analyze-text">Проанализировать чертеж с помощью ИИ</span>
+                            <div id="analyze-spinner" class="loading-spinner mx-auto hidden"></div>
+                        </button>
+                        <button 
+                            id="manual-input" 
+                            class="w-full bg-gray-600 text-white py-2 px-4 rounded-lg hover:bg-gray-700 transition-colors"
+                        >
+                            Ввести размеры вручную
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Preview Area -->
+                <div>
+                    <div id="preview-container" class="hidden">
+                        <h3 class="text-lg font-medium text-gray-800 mb-3">Предварительный просмотр чертежа</h3>
+                        <div class="border rounded-lg p-4 bg-gray-50">
+                            <img id="blueprint-preview" class="max-w-full h-auto rounded" alt="Предварительный просмотр чертежа">
+                            <div class="mt-2 text-sm text-gray-600">
+                                <span id="file-info"></span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Manual Input Form -->
+                    <div id="manual-input-form" class="hidden">
+                        <h3 class="text-lg font-medium text-gray-800 mb-3">Ручной ввод размеров</h3>
+                        <div class="space-y-3">
+                            <div id="wall-inputs">
+                                <div class="flex items-center space-x-2 mb-2">
+                                    <input 
+                                        type="number" 
+                                        placeholder="Длина стены (мм)" 
+                                        class="flex-1 px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    >
+                                    <button class="text-red-600 hover:text-red-800 p-1 remove-wall">
+                                        ✕
+                                    </button>
+                                </div>
+                            </div>
+                            <button 
+                                id="add-wall" 
+                                class="w-full bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors"
+                            >
+                                + Добавить стену
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Inventory Configuration Section -->
+        <section class="bg-white rounded-lg shadow-md p-6 mb-8">
+            <h2 class="text-xl font-semibold mb-4 text-gray-800">Инвентарь панелей опалубки</h2>
+            <div class="grid md:grid-cols-2 gap-6">
+                <div>
+                    <label for="inventory-url" class="block text-sm font-medium text-gray-700 mb-2">
+                        URL Google Sheets CSV
+                    </label>
+                    <input 
+                        type="url" 
+                        id="inventory-url" 
+                        placeholder="https://docs.google.com/spreadsheets/.../export?format=csv"
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                    <p class="text-xs text-gray-500 mt-1">
+                        Формат CSV: обязательны столбцы Ширина, Высота, Количество
+                    </p>
+                    <button 
+                        id="load-inventory" 
+                        class="mt-2 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                        Загрузить данные инвентаря
+                    </button>
+                </div>
+                <div>
+                    <div id="inventory-status" class="bg-gray-50 rounded-lg p-4">
+                        <div class="flex items-center space-x-2 mb-2">
+                            <div class="w-3 h-3 bg-gray-300 rounded-full"></div>
+                            <span class="text-sm text-gray-600">Данные инвентаря не загружены</span>
+                        </div>
+                        <div id="inventory-summary" class="text-sm text-gray-500 hidden">
+                            <p>Общее количество типов панелей: <span id="panel-types-count">0</span></p>
+                            <p>Общее количество доступных панелей: <span id="total-panels-count">0</span></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Results Section -->
+        <section id="results-section" class="hidden">
+            <!-- Calculation Results -->
+            <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+                <h2 class="text-xl font-semibold mb-4 text-gray-800">Результаты расчетов</h2>
+                <div class="grid md:grid-cols-3 gap-4 mb-6">
+                    <div class="bg-blue-50 rounded-lg p-4 text-center">
+                        <div class="text-2xl font-bold text-blue-600" id="total-walls">0</div>
+                        <div class="text-sm text-gray-600">Общее количество стен</div>
+                    </div>
+                    <div class="bg-green-50 rounded-lg p-4 text-center">
+                        <div class="text-2xl font-bold text-green-600" id="total-panels-used">0</div>
+                        <div class="text-sm text-gray-600">Использовано панелей</div>
+                    </div>
+                    <div class="bg-yellow-50 rounded-lg p-4 text-center">
+                        <div class="text-2xl font-bold text-yellow-600" id="total-waste">0mm</div>
+                        <div class="text-sm text-gray-600">Общие отходы</div>
+                    </div>
+                </div>
+
+                <!-- Results Table -->
+                <div class="overflow-x-auto">
+                    <table class="w-full border-collapse">
+                        <thead>
+                            <tr class="bg-gray-50">
+                                <th class="border border-gray-200 px-4 py-2 text-left">Стена №</th>
+                                <th class="border border-gray-200 px-4 py-2 text-left">Длина (мм)</th>
+                                <th class="border border-gray-200 px-4 py-2 text-left">Использованные панели</th>
+                                <th class="border border-gray-200 px-4 py-2 text-left">Общая длина панелей</th>
+                                <th class="border border-gray-200 px-4 py-2 text-left">Отходы (мм)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="results-table-body">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Visual Schema -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-xl font-semibold text-gray-800">Визуальная схема расположения</h2>
+                    <div class="flex space-x-2">
+                        <button id="zoom-in" class="bg-gray-200 hover:bg-gray-300 px-3 py-1 rounded text-sm">Приблизить +</button>
+                        <button id="zoom-out" class="bg-gray-200 hover:bg-gray-300 px-3 py-1 rounded text-sm">Отдалить -</button>
+                        <button id="reset-view" class="bg-gray-200 hover:bg-gray-300 px-3 py-1 rounded text-sm">Сброс</button>
+                    </div>
+                </div>
+                <div class="canvas-container">
+                    <canvas 
+                        id="layout-canvas" 
+                        width="800" 
+                        height="600" 
+                        class="w-full h-auto cursor-move"
+                    ></canvas>
+                </div>
+                <div class="mt-4 text-sm text-gray-600">
+                    <p>Нажмите и перетащите для панорамирования • Используйте колесо мыши для масштабирования • Нажмите на панели для подробностей</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Error Messages -->
+        <div id="error-messages" class="fixed top-4 right-4 z-50 space-y-2"></div>
+        
+        <!-- Loading Overlay -->
+        <div id="loading-overlay" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+            <div class="bg-white rounded-lg p-6 text-center">
+                <div class="loading-spinner mx-auto mb-4"></div>
+                <p class="text-gray-600">Обработка...</p>
+                <p id="loading-message" class="text-sm text-gray-500 mt-2"></p>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-gray-800 text-white py-6 mt-12">
+        <div class="container mx-auto px-4 text-center">
+            <p class="text-gray-300">FormworkCalc - ИИ-интегрированный калькулятор опалубки</p>
+            <p class="text-gray-400 text-sm mt-2">Разработано для строительных специалистов</p>
+        </div>
+    </footer>
+
+    <script>
+        // FormworkCalc Application - Complete Implementation
+        
+        // Application State Management
+        const AppState = {
+            // Configuration
+            apiKey: '',
+            foundationType: 'strip',
+            foundationDepth: 1000,
+            
+            // Data
+            blueprintImage: null,
+            wallDimensions: [],
+            inventoryData: [],
+            
+            // Results
+            calculationResults: null,
+            layoutSchema: null,
+            
+            // UI State
+            currentStep: 0,
+            isLoading: false,
+            errors: []
+        };
+        
+        // Utility Functions
+        const Utils = {
+            // Show loading overlay
+            showLoading(message = 'Обработка...') {
+                const overlay = document.getElementById('loading-overlay');
+                const messageEl = document.getElementById('loading-message');
+                messageEl.textContent = message;
+                overlay.classList.remove('hidden');
+                AppState.isLoading = true;
+            },
+            
+            // Hide loading overlay
+            hideLoading() {
+                const overlay = document.getElementById('loading-overlay');
+                overlay.classList.add('hidden');
+                AppState.isLoading = false;
+            },
+            
+            // Show error message
+            showError(message, duration = 5000) {
+                const container = document.getElementById('error-messages');
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded shadow-lg';
+                errorDiv.innerHTML = `
+                    <div class="flex items-center justify-between">
+                        <span>${message}</span>
+                        <button class="text-red-700 hover:text-red-900 ml-4" onclick="this.parentElement.parentElement.remove()">
+                            ✕
+                        </button>
+                    </div>
+                `;
+                container.appendChild(errorDiv);
+                
+                if (duration > 0) {
+                    setTimeout(() => {
+                        if (errorDiv.parentNode) {
+                            errorDiv.remove();
+                        }
+                    }, duration);
+                }
+                
+                AppState.errors.push(message);
+            },
+            
+            // Show success message
+            showSuccess(message, duration = 3000) {
+                const container = document.getElementById('error-messages');
+                const successDiv = document.createElement('div');
+                successDiv.className = 'bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded shadow-lg';
+                successDiv.innerHTML = `
+                    <div class="flex items-center justify-between">
+                        <span>${message}</span>
+                        <button class="text-green-700 hover:text-green-900 ml-4" onclick="this.parentElement.parentElement.remove()">
+                            ✕
+                        </button>
+                    </div>
+                `;
+                container.appendChild(successDiv);
+                
+                if (duration > 0) {
+                    setTimeout(() => {
+                        if (successDiv.parentNode) {
+                            successDiv.remove();
+                        }
+                    }, duration);
+                }
+            },
+            
+            // Update progress bar
+            updateProgress(step) {
+                const progressBar = document.getElementById('progress-bar');
+                const percentage = (step / 3) * 100;
+                progressBar.style.width = `${percentage}%`;
+                AppState.currentStep = step;
+            },
+            
+            // Validate file
+            validateImageFile(file) {
+                const validTypes = ['image/jpeg', 'image/jpg', 'image/png'];
+                const maxSize = 10 * 1024 * 1024; // 10MB
+                
+                if (!validTypes.includes(file.type)) {
+                    throw new Error('Пожалуйста, загрузите допустимый файл изображения (JPEG, JPG или PNG)');
+                }
+                
+                if (file.size > maxSize) {
+                    throw new Error('Размер файла должен быть меньше 10МБ');
+                }
+                
+                return true;
+            },
+            
+            // Convert file to base64
+            fileToBase64(file) {
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result.split(',')[1]);
+                    reader.onerror = reject;
+                    reader.readAsDataURL(file);
+                });
+            },
+            
+            // Format number with commas
+            formatNumber(num) {
+                return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+            },
+            
+            // Generate random ID
+            generateId() {
+                return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+            }
+        };
+        
+        // API Key Management
+        const APIKeyManager = {
+            STORAGE_KEY: 'formworkcalc_api_key',
+            
+            // Load API key from localStorage or use default
+            load() {
+                const stored = localStorage.getItem(this.STORAGE_KEY);
+                if (stored) {
+                    AppState.apiKey = stored;
+                } else {
+                    AppState.apiKey = '';
+                }
+                this.updateUI();
+            },
+            
+            // Save API key to localStorage
+            save(apiKey) {
+                AppState.apiKey = apiKey;
+                localStorage.setItem(this.STORAGE_KEY, apiKey);
+                this.updateUI();
+            },
+            
+            // Update UI based on API key status
+            updateUI() {
+                const statusEl = document.getElementById('api-status');
+                const analyzeBtn = document.getElementById('analyze-blueprint');
+                
+                if (AppState.apiKey) {
+                    statusEl.innerHTML = `
+                        <div class="w-3 h-3 bg-green-500 rounded-full"></div>
+                        <span class="text-sm text-green-600">Ключ API настроен</span>
+                    `;
+                    if (AppState.blueprintImage) {
+                        analyzeBtn.disabled = false;
+                    }
+                } else {
+                    statusEl.innerHTML = `
+                        <div class="w-3 h-3 bg-gray-300 rounded-full"></div>
+                        <span class="text-sm text-gray-600">Ключ API не настроен</span>
+                    `;
+                    analyzeBtn.disabled = true;
+                }
+            },
+            
+            // Validate API key format
+            validate(apiKey) {
+                return apiKey && apiKey.length > 10 && apiKey.startsWith('sk-');
+            }
+        };
+        
+        console.log('FormworkCalc Application Started Successfully');
+    </script>
+    <script>
+        // Blueprint Upload Component
+        const BlueprintUploader = {
+            init() {
+                const uploadArea = document.getElementById('upload-area');
+                const fileInput = document.getElementById('blueprint-file');
+                const analyzeBtn = document.getElementById('analyze-blueprint');
+                const manualBtn = document.getElementById('manual-input');
+                
+                // Click to upload
+                uploadArea.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    fileInput.click();
+                });
+                
+                // Drag and drop
+                uploadArea.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    uploadArea.classList.add('border-blue-400', 'bg-blue-50');
+                });
+                
+                uploadArea.addEventListener('dragleave', () => {
+                    uploadArea.classList.remove('border-blue-400', 'bg-blue-50');
+                });
+                
+                uploadArea.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    uploadArea.classList.remove('border-blue-400', 'bg-blue-50');
+                    
+                    const files = e.dataTransfer.files;
+                    if (files.length > 0) {
+                        this.handleFile(files[0]);
+                    }
+                });
+                
+                // File input change
+                fileInput.addEventListener('change', (e) => {
+                    if (e.target.files.length > 0) {
+                        this.handleFile(e.target.files[0]);
+                    }
+                });
+                
+                // Analyze button
+                analyzeBtn.addEventListener('click', () => {
+                    AIVisionService.analyzeBlueprint();
+                });
+                
+                // Manual input button
+                manualBtn.addEventListener('click', () => {
+                    this.showManualInput();
+                });
+                
+                // Manual input handlers
+                this.initManualInput();
+            },
+            
+            async handleFile(file) {
+                try {
+                    Utils.validateImageFile(file);
+                    
+                    AppState.blueprintImage = file;
+                    await this.showPreview(file);
+                    
+                    // Update analyze button state
+                    const analyzeBtn = document.getElementById('analyze-blueprint');
+                    if (AppState.apiKey) {
+                        analyzeBtn.disabled = false;
+                    }
+                    
+                    Utils.showSuccess('Чертеж успешно загружен');
+                    Utils.updateProgress(1);
+                    
+                } catch (error) {
+                    Utils.showError(error.message);
+                }
+            },
+            
+            async showPreview(file) {
+                const previewContainer = document.getElementById('preview-container');
+                const previewImg = document.getElementById('blueprint-preview');
+                const fileInfo = document.getElementById('file-info');
+                
+                // Create preview URL
+                const previewUrl = URL.createObjectURL(file);
+                previewImg.src = previewUrl;
+                
+                // Update file info
+                const sizeKB = Math.round(file.size / 1024);
+                fileInfo.textContent = `${file.name} (${sizeKB} KB)`;
+                
+                // Show preview
+                previewContainer.classList.remove('hidden');
+                
+                // Hide manual input if shown
+                document.getElementById('manual-input-form').classList.add('hidden');
+            },
+            
+            showManualInput() {
+                const manualForm = document.getElementById('manual-input-form');
+                const previewContainer = document.getElementById('preview-container');
+                
+                // Hide preview and show manual input
+                previewContainer.classList.add('hidden');
+                manualForm.classList.remove('hidden');
+                
+                // Focus on first input
+                const firstInput = manualForm.querySelector('input');
+                if (firstInput) firstInput.focus();
+            },
+            
+            initManualInput() {
+                const addWallBtn = document.getElementById('add-wall');
+                const wallInputs = document.getElementById('wall-inputs');
+                
+                addWallBtn.addEventListener('click', () => {
+                    this.addWallInput();
+                });
+                
+                // Initialize with remove handler
+                this.updateRemoveHandlers();
+            },
+            
+            addWallInput() {
+                const wallInputs = document.getElementById('wall-inputs');
+                const newInput = document.createElement('div');
+                newInput.className = 'flex items-center space-x-2 mb-2';
+                newInput.innerHTML = `
+                    <input 
+                        type="number" 
+                        placeholder="Wall length (mm)" 
+                        class="flex-1 px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                    <button class="text-red-600 hover:text-red-800 p-1 remove-wall">
+                        ✕
+                    </button>
+                `;
+                wallInputs.appendChild(newInput);
+                this.updateRemoveHandlers();
+                
+                // Focus on new input
+                newInput.querySelector('input').focus();
+            },
+            
+            updateRemoveHandlers() {
+                const removeButtons = document.querySelectorAll('.remove-wall');
+                removeButtons.forEach(btn => {
+                    btn.onclick = (e) => {
+                        const wallInputs = document.getElementById('wall-inputs');
+                        if (wallInputs.children.length > 1) {
+                            btn.closest('.flex').remove();
+                        } else {
+                            Utils.showError('Необходим минимум один размер стены');
+                        }
+                    };
+                });
+            },
+            
+            getManualDimensions() {
+                const inputs = document.querySelectorAll('#wall-inputs input');
+                const dimensions = [];
+                
+                inputs.forEach(input => {
+                    const value = parseFloat(input.value);
+                    if (value && value > 0) {
+                        dimensions.push({ length: value });
+                    }
+                });
+                
+                return dimensions;
+            }
+        };
+        
+        // AI Vision Service
+        const AIVisionService = {
+            API_BASE_URL: 'https://openrouter.ai/api/v1/chat/completions',
+            
+            // AI models in fallback order
+            MODELS: [
+                'anthropic/claude-3-haiku',
+                'google/gemini-pro-vision',
+                'openai/gpt-4-vision-preview'
+            ],
+            
+            async analyzeBlueprint() {
+                if (!AppState.blueprintImage || !AppState.apiKey) {
+                    Utils.showError('Пожалуйста, загрузите чертеж и настройте ключ API');
+                    return;
+                }
+                
+                Utils.showLoading('Анализ чертежа с помощью ИИ...');
+                
+                try {
+                    // Convert image to base64
+                    const base64Image = await Utils.fileToBase64(AppState.blueprintImage);
+                    
+                    // Try each model in sequence
+                    let result = null;
+                    for (const model of this.MODELS) {
+                        try {
+                            result = await this.callVisionAPI(base64Image, model);
+                            if (result) break;
+                        } catch (error) {
+                            console.warn(`Model ${model} failed:`, error.message);
+                            continue;
+                        }
+                    }
+                    
+                    if (!result) {
+                        throw new Error('Все модели ИИ не смогли проанализировать чертеж');
+                    }
+                    
+                    // Process the AI response
+                    AppState.wallDimensions = result.walls || [];
+                    
+                    if (AppState.wallDimensions.length === 0) {
+                        throw new Error('На чертеже не найдено размеров стен. Попробуйте ввести размеры вручную.');
+                    }
+                    
+                    Utils.hideLoading();
+                    Utils.showSuccess(`Обнаружено ${AppState.wallDimensions.length} стен на чертеже`);
+                    Utils.updateProgress(2);
+                    
+                    // Proceed to calculation if inventory is loaded
+                    if (AppState.inventoryData.length > 0) {
+                        FormworkCalculator.calculate();
+                    } else {
+                        Utils.showError('Пожалуйста, загрузите данные инвентаря для продолжения расчетов');
+                    }
+                    
+                } catch (error) {
+                    Utils.hideLoading();
+                    Utils.showError(error.message);
+                }
+            },
+            
+            async callVisionAPI(base64Image, model) {
+                const prompt = `You are an expert construction engineer analyzing foundation blueprints. 
+                
+Analyze this construction blueprint image and extract the wall dimensions. Look for:
+- Foundation walls with clearly marked dimensions
+- Length measurements in any unit (mm, cm, m, ft, in)
+- External wall perimeters
+
+Return ONLY a JSON object in this exact format:
+{
+  "walls": [
+    {"length": 12000},
+    {"length": 8500}
+  ]
+}
+
+Important rules:
+- Convert all dimensions to millimeters
+- Only include walls with clearly visible dimensions
+- Do not estimate or guess dimensions
+- If no clear dimensions are found, return {"walls": []}
+- Return only the JSON object, no other text`;
+                
+                const response = await fetch(this.API_BASE_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${AppState.apiKey}`,
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        model: model,
+                        messages: [
+                            {
+                                role: 'user',
+                                content: [
+                                    {
+                                        type: 'text',
+                                        text: prompt
+                                    },
+                                    {
+                                        type: 'image_url',
+                                        image_url: {
+                                            url: `data:image/jpeg;base64,${base64Image}`
+                                        }
+                                    }
+                                ]
+                            }
+                        ],
+                        max_tokens: 500,
+                        temperature: 0.1
+                    })
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error?.message || `API request failed: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                const content = data.choices[0]?.message?.content;
+                
+                if (!content) {
+                    throw new Error('No response content from AI model');
+                }
+                
+                // Parse JSON response
+                try {
+                    const jsonMatch = content.match(/\{[^}]*\}/s);
+                    if (jsonMatch) {
+                        return JSON.parse(jsonMatch[0]);
+                    } else {
+                        return JSON.parse(content.trim());
+                    }
+                } catch (parseError) {
+                    throw new Error('Invalid JSON response from AI model');
+                }
+            }
+        };
+        // Inventory Management Service
+        const InventoryManager = {
+            init() {
+                const loadBtn = document.getElementById('load-inventory');
+                const urlInput = document.getElementById('inventory-url');
+                
+                loadBtn.addEventListener('click', () => {
+                    const url = urlInput.value.trim();
+                    if (url) {
+                        this.loadInventoryData(url);
+                    } else {
+                        Utils.showError('Пожалуйста, введите действительный URL Google Sheets CSV');
+                    }
+                });
+                
+                // Load sample data if no URL provided
+                this.loadSampleData();
+            },
+            
+            async loadInventoryData(url) {
+                Utils.showLoading('Загрузка данных инвентаря...');
+                
+                try {
+                    // Validate URL format
+                    if (!this.isValidGoogleSheetsURL(url)) {
+                        throw new Error('Пожалуйста, предоставьте действительный URL экспорта Google Sheets CSV');
+                    }
+                    
+                    const response = await fetch(url);
+                    if (!response.ok) {
+                        throw new Error(`Failed to fetch data: ${response.status}`);
+                    }
+                    
+                    const csvText = await response.text();
+                    const data = this.parseCSV(csvText);
+                    
+                    AppState.inventoryData = data;
+                    this.updateInventoryUI();
+                    
+                    Utils.hideLoading();
+                    Utils.showSuccess(`Загружено ${data.length} типов панелей`);
+                    
+                    // Proceed to calculation if walls are available
+                    if (AppState.wallDimensions.length > 0) {
+                        FormworkCalculator.calculate();
+                    }
+                    
+                } catch (error) {
+                    Utils.hideLoading();
+                    Utils.showError(error.message);
+                }
+            },
+            
+            isValidGoogleSheetsURL(url) {
+                return url.includes('docs.google.com') && 
+                       (url.includes('/export?format=csv') || url.includes('output=csv'));
+            },
+            
+            parseCSV(csvText) {
+                const lines = csvText.trim().split('\n');
+                if (lines.length < 2) {
+                    throw new Error('CSV файл должен содержать как минимум заголовок и одну строку данных');
+                }
+                
+                const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+                const requiredHeaders = ['width', 'height', 'quantity'];
+                
+                // Check for required columns
+                const missingHeaders = requiredHeaders.filter(h => 
+                    !headers.some(header => header.includes(h))
+                );
+                
+                if (missingHeaders.length > 0) {
+                    throw new Error(`Отсутствуют обязательные столбцы: ${missingHeaders.join(', ')}`);
+                }
+                
+                // Find column indices
+                const widthIndex = headers.findIndex(h => h.includes('width'));
+                const heightIndex = headers.findIndex(h => h.includes('height'));
+                const quantityIndex = headers.findIndex(h => h.includes('quantity'));
+                
+                const data = [];
+                
+                for (let i = 1; i < lines.length; i++) {
+                    const values = lines[i].split(',').map(v => v.trim());
+                    
+                    if (values.length < Math.max(widthIndex, heightIndex, quantityIndex) + 1) {
+                        continue; // Skip incomplete rows
+                    }
+                    
+                    const width = parseFloat(values[widthIndex]);
+                    const height = parseFloat(values[heightIndex]);
+                    const quantity = parseInt(values[quantityIndex]);
+                    
+                    if (width > 0 && height > 0 && quantity >= 0) {
+                        data.push({
+                            id: Utils.generateId(),
+                            width: width,
+                            height: height,
+                            quantity: quantity,
+                            originalQuantity: quantity
+                        });
+                    }
+                }
+                
+                if (data.length === 0) {
+                    throw new Error('Не найдено допустимых данных о панелях в CSV');
+                }
+                
+                return data;
+            },
+            
+            updateInventoryUI() {
+                const statusEl = document.getElementById('inventory-status');
+                const summaryEl = document.getElementById('inventory-summary');
+                const typesCount = document.getElementById('panel-types-count');
+                const totalCount = document.getElementById('total-panels-count');
+                
+                if (AppState.inventoryData.length > 0) {
+                    const totalPanels = AppState.inventoryData.reduce((sum, panel) => sum + panel.quantity, 0);
+                    
+                    statusEl.querySelector('.w-3').className = 'w-3 h-3 bg-green-500 rounded-full';
+                    statusEl.querySelector('span').textContent = 'Данные инвентаря загружены';
+                    statusEl.querySelector('span').className = 'text-sm text-green-600';
+                    
+                    typesCount.textContent = AppState.inventoryData.length;
+                    totalCount.textContent = Utils.formatNumber(totalPanels);
+                    summaryEl.classList.remove('hidden');
+                } else {
+                    statusEl.querySelector('.w-3').className = 'w-3 h-3 bg-gray-300 rounded-full';
+                    statusEl.querySelector('span').textContent = 'Данные инвентаря не загружены';
+                    statusEl.querySelector('span').className = 'text-sm text-gray-600';
+                    summaryEl.classList.add('hidden');
+                }
+            },
+            
+            loadSampleData() {
+                // Load sample formwork panel data for demonstration
+                const sampleData = [
+                    { id: 'sample1', width: 600, height: 2400, quantity: 20, originalQuantity: 20 },
+                    { id: 'sample2', width: 900, height: 2400, quantity: 15, originalQuantity: 15 },
+                    { id: 'sample3', width: 1200, height: 2400, quantity: 10, originalQuantity: 10 },
+                    { id: 'sample4', width: 300, height: 2400, quantity: 25, originalQuantity: 25 },
+                    { id: 'sample5', width: 450, height: 2400, quantity: 18, originalQuantity: 18 },
+                    { id: 'sample6', width: 750, height: 2400, quantity: 12, originalQuantity: 12 }
+                ];
+                
+                AppState.inventoryData = sampleData;
+                this.updateInventoryUI();
+                Utils.showSuccess('Загружены образцы данных инвентаря');
+            }
+        };
+        
+        // Formwork Calculation Engine
+        const FormworkCalculator = {
+            calculate() {
+                if (AppState.wallDimensions.length === 0) {
+                    Utils.showError('Нет доступных размеров стен для расчета');
+                    return;
+                }
+                
+                if (AppState.inventoryData.length === 0) {
+                    Utils.showError('Нет доступных данных инвентаря для расчета');
+                    return;
+                }
+                
+                Utils.showLoading('Расчет оптимального расположения опалубки...');
+                
+                try {
+                    // Reset inventory quantities
+                    AppState.inventoryData.forEach(panel => {
+                        panel.quantity = panel.originalQuantity;
+                    });
+                    
+                    const results = this.optimizeFormworkLayout();
+                    AppState.calculationResults = results;
+                    
+                    // Generate visual schema
+                    AppState.layoutSchema = LayoutGenerator.generateSchema(results);
+                    
+                    // Update UI
+                    ResultsDisplay.showResults(results);
+                    CanvasRenderer.renderSchema(AppState.layoutSchema);
+                    
+                    // Show results section
+                    document.getElementById('results-section').classList.remove('hidden');
+                    
+                    Utils.hideLoading();
+                    Utils.showSuccess('Расчет расположения опалубки завершен успешно');
+                    Utils.updateProgress(3);
+                    
+                } catch (error) {
+                    Utils.hideLoading();
+                    Utils.showError(error.message);
+                }
+            },
+            
+            optimizeFormworkLayout() {
+                const wallResults = [];
+                let totalPanelsUsed = 0;
+                let totalWaste = 0;
+                
+                // Sort panels by width (largest first) for greedy algorithm
+                const sortedPanels = [...AppState.inventoryData].sort((a, b) => b.width - a.width);
+                
+                AppState.wallDimensions.forEach((wall, wallIndex) => {
+                    const wallResult = this.calculateWallPanels(wall.length, sortedPanels, wallIndex + 1);
+                    wallResults.push(wallResult);
+                    totalPanelsUsed += wallResult.panelsUsed.length;
+                    totalWaste += wallResult.waste;
+                });
+                
+                return {
+                    walls: wallResults,
+                    totalWalls: wallResults.length,
+                    totalPanelsUsed: totalPanelsUsed,
+                    totalWaste: totalWaste,
+                    unusedPanels: AppState.inventoryData.filter(panel => panel.quantity > 0)
+                };
+            },
+            
+            calculateWallPanels(wallLength, availablePanels, wallNumber) {
+                const panelsUsed = [];
+                let remainingLength = wallLength;
+                let totalPanelLength = 0;
+                
+                while (remainingLength > 0) {
+                    // Find the largest panel that fits
+                    let selectedPanel = null;
+                    
+                    for (const panel of availablePanels) {
+                        if (panel.quantity > 0 && panel.width <= remainingLength) {
+                            selectedPanel = panel;
+                            break; // Take the first (largest) available panel that fits
+                        }
+                    }
+                    
+                    // If no panel fits, use the smallest available panel
+                    if (!selectedPanel) {
+                        for (let i = availablePanels.length - 1; i >= 0; i--) {
+                            if (availablePanels[i].quantity > 0) {
+                                selectedPanel = availablePanels[i];
+                                break;
+                            }
+                        }
+                    }
+                    
+                    if (!selectedPanel) {
+                        throw new Error(`Недостаточно панелей для завершения стены ${wallNumber}`);
+                    }
+                    
+                    // Use the selected panel
+                    panelsUsed.push({
+                        id: selectedPanel.id,
+                        width: selectedPanel.width,
+                        height: selectedPanel.height,
+                        position: totalPanelLength,
+                        usedLength: Math.min(selectedPanel.width, remainingLength)
+                    });
+                    
+                    selectedPanel.quantity--;
+                    totalPanelLength += selectedPanel.width;
+                    remainingLength -= selectedPanel.width;
+                }
+                
+                const waste = totalPanelLength - wallLength;
+                
+                return {
+                    wallNumber: wallNumber,
+                    wallLength: wallLength,
+                    panelsUsed: panelsUsed,
+                    totalPanelLength: totalPanelLength,
+                    waste: Math.max(0, waste)
+                };
+            }
+        };
+        
+        // Layout Generator for Visual Schema
+        const LayoutGenerator = {
+            generateSchema(calculationResults) {
+                const schema = {
+                    walls: [],
+                    bounds: { minX: 0, minY: 0, maxX: 0, maxY: 0 },
+                    scale: 1,
+                    colors: ['#fef3c7', '#dbeafe', '#dcfce7', '#fce7f3', '#e0e7ff']
+                };
+                
+                let currentY = 0;
+                const wallSpacing = 100; // Space between walls in visualization
+                const foundationHeight = AppState.foundationDepth;
+                
+                calculationResults.walls.forEach((wall, wallIndex) => {
+                    const wallSchema = {
+                        id: `wall-${wall.wallNumber}`,
+                        x: 0,
+                        y: currentY,
+                        width: wall.wallLength,
+                        height: foundationHeight,
+                        panels: []
+                    };
+                    
+                    // Add panels to wall
+                    let currentX = 0;
+                    wall.panelsUsed.forEach((panel, panelIndex) => {
+                        const panelSchema = {
+                            id: panel.id + '-' + panelIndex,
+                            x: currentX,
+                            y: currentY,
+                            width: panel.width,
+                            height: foundationHeight,
+                            originalPanelWidth: panel.width,
+                            usedLength: panel.usedLength,
+                            color: schema.colors[panelIndex % schema.colors.length],
+                            panelInfo: {
+                                width: panel.width,
+                                height: panel.height,
+                                position: panel.position
+                            }
+                        };
+                        
+                        wallSchema.panels.push(panelSchema);
+                        currentX += panel.width;
+                    });
+                    
+                    schema.walls.push(wallSchema);
+                    currentY += foundationHeight + wallSpacing;
+                    
+                    // Update bounds
+                    schema.bounds.maxX = Math.max(schema.bounds.maxX, wall.wallLength);
+                    schema.bounds.maxY = currentY;
+                });
+                
+                return schema;
+            }
+        };
+        
+        // Results Display Component
+        const ResultsDisplay = {
+            showResults(results) {
+                // Update summary cards
+                document.getElementById('total-walls').textContent = results.totalWalls;
+                document.getElementById('total-panels-used').textContent = results.totalPanelsUsed;
+                document.getElementById('total-waste').textContent = Utils.formatNumber(results.totalWaste);
+                
+                // Update results table
+                this.updateResultsTable(results.walls);
+            },
+            
+            updateResultsTable(walls) {
+                const tbody = document.getElementById('results-table-body');
+                tbody.innerHTML = '';
+                
+                walls.forEach(wall => {
+                    const row = document.createElement('tr');
+                    row.className = 'hover:bg-gray-50';
+                    
+                    const panelDetails = wall.panelsUsed.map(p => 
+                        `${p.width}mm`
+                    ).join(', ');
+                    
+                    row.innerHTML = `
+                        <td class="border border-gray-200 px-4 py-2 font-medium">Стена ${wall.wallNumber}</td>
+                        <td class="border border-gray-200 px-4 py-2">${Utils.formatNumber(wall.wallLength)}mm</td>
+                        <td class="border border-gray-200 px-4 py-2">
+                            <div class="text-sm">${wall.panelsUsed.length} панелей</div>
+                            <div class="text-xs text-gray-500">${panelDetails}</div>
+                        </td>
+                        <td class="border border-gray-200 px-4 py-2">${Utils.formatNumber(wall.totalPanelLength)}mm</td>
+                        <td class="border border-gray-200 px-4 py-2 ${
+                            wall.waste > 0 ? 'text-yellow-600' : 'text-green-600'
+                        }">${Utils.formatNumber(wall.waste)}mm</td>
+                    `;
+                    
+                    tbody.appendChild(row);
+                });
+            }
+        };
+        
+        // Canvas Renderer for Visual Schema
+        const CanvasRenderer = {
+            canvas: null,
+            ctx: null,
+            scale: 1,
+            offsetX: 0,
+            offsetY: 0,
+            isDragging: false,
+            lastX: 0,
+            lastY: 0,
+            
+            init() {
+                this.canvas = document.getElementById('layout-canvas');
+                this.ctx = this.canvas.getContext('2d');
+                
+                // Set canvas size
+                this.canvas.width = 800;
+                this.canvas.height = 600;
+                
+                // Add event listeners
+                this.addEventListeners();
+            },
+            
+            addEventListeners() {
+                // Zoom controls
+                document.getElementById('zoom-in').addEventListener('click', () => {
+                    this.scale *= 1.2;
+                    this.redraw();
+                });
+                
+                document.getElementById('zoom-out').addEventListener('click', () => {
+                    this.scale /= 1.2;
+                    this.redraw();
+                });
+                
+                document.getElementById('reset-view').addEventListener('click', () => {
+                    this.resetView();
+                });
+                
+                // Mouse events for pan
+                this.canvas.addEventListener('mousedown', (e) => {
+                    this.isDragging = true;
+                    this.lastX = e.clientX;
+                    this.lastY = e.clientY;
+                });
+                
+                this.canvas.addEventListener('mousemove', (e) => {
+                    if (this.isDragging) {
+                        const deltaX = e.clientX - this.lastX;
+                        const deltaY = e.clientY - this.lastY;
+                        
+                        this.offsetX += deltaX;
+                        this.offsetY += deltaY;
+                        
+                        this.lastX = e.clientX;
+                        this.lastY = e.clientY;
+                        
+                        this.redraw();
+                    }
+                });
+                
+                this.canvas.addEventListener('mouseup', () => {
+                    this.isDragging = false;
+                });
+                
+                this.canvas.addEventListener('mouseleave', () => {
+                    this.isDragging = false;
+                });
+                
+                // Mouse wheel zoom
+                this.canvas.addEventListener('wheel', (e) => {
+                    e.preventDefault();
+                    const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
+                    this.scale *= zoomFactor;
+                    this.redraw();
+                });
+            },
+            
+            renderSchema(schema) {
+                if (!schema || !this.canvas) return;
+                
+                // Calculate initial scale to fit content
+                this.calculateInitialScale(schema);
+                this.draw(schema);
+            },
+            
+            calculateInitialScale(schema) {
+                const padding = 50;
+                const canvasWidth = this.canvas.width - 2 * padding;
+                const canvasHeight = this.canvas.height - 2 * padding;
+                
+                const contentWidth = schema.bounds.maxX;
+                const contentHeight = schema.bounds.maxY;
+                
+                if (contentWidth > 0 && contentHeight > 0) {
+                    const scaleX = canvasWidth / contentWidth;
+                    const scaleY = canvasHeight / contentHeight;
+                    this.scale = Math.min(scaleX, scaleY, 1);
+                }
+                
+                // Center the content
+                this.offsetX = (this.canvas.width - contentWidth * this.scale) / 2;
+                this.offsetY = (this.canvas.height - contentHeight * this.scale) / 2;
+            },
+            
+            draw(schema) {
+                // Clear canvas
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                
+                // Save context
+                this.ctx.save();
+                
+                // Apply transformations
+                this.ctx.translate(this.offsetX, this.offsetY);
+                this.ctx.scale(this.scale, this.scale);
+                
+                // Draw walls
+                schema.walls.forEach(wall => {
+                    this.drawWall(wall);
+                });
+                
+                // Restore context
+                this.ctx.restore();
+                
+                // Draw UI elements (not scaled)
+                this.drawUI(schema);
+            },
+            
+            drawWall(wall) {
+                // Draw wall outline
+                this.ctx.strokeStyle = '#374151';
+                this.ctx.lineWidth = 2;
+                this.ctx.strokeRect(wall.x, wall.y, wall.width, wall.height);
+                
+                // Draw panels
+                wall.panels.forEach((panel, index) => {
+                    // Panel fill
+                    this.ctx.fillStyle = panel.color;
+                    this.ctx.fillRect(panel.x, panel.y, panel.width, panel.height);
+                    
+                    // Panel border
+                    this.ctx.strokeStyle = '#6b7280';
+                    this.ctx.lineWidth = 1;
+                    this.ctx.strokeRect(panel.x, panel.y, panel.width, panel.height);
+                    
+                    // Panel text (if scale is large enough)
+                    if (this.scale > 0.3) {
+                        this.ctx.fillStyle = '#374151';
+                        this.ctx.font = `${Math.max(12, 16 / this.scale)}px Arial`;
+                        this.ctx.textAlign = 'center';
+                        this.ctx.textBaseline = 'middle';
+                        
+                        const centerX = panel.x + panel.width / 2;
+                        const centerY = panel.y + panel.height / 2;
+                        
+                        this.ctx.fillText(
+                            `${panel.width}mm`,
+                            centerX,
+                            centerY - 8
+                        );
+                        
+                        this.ctx.font = `${Math.max(10, 12 / this.scale)}px Arial`;
+                        this.ctx.fillText(
+                            `#${index + 1}`,
+                            centerX,
+                            centerY + 8
+                        );
+                    }
+                });
+                
+                // Wall label
+                if (this.scale > 0.2) {
+                    this.ctx.fillStyle = '#1f2937';
+                    this.ctx.font = `bold ${Math.max(14, 18 / this.scale)}px Arial`;
+                    this.ctx.textAlign = 'left';
+                    this.ctx.fillText(
+                        `Стена ${wall.id.split('-')[1]} (${Utils.formatNumber(wall.width)}mm)`,
+                        wall.x,
+                        wall.y - 10
+                    );
+                }
+            },
+            
+            drawUI(schema) {
+                // Draw scale indicator
+                this.ctx.fillStyle = '#6b7280';
+                this.ctx.font = '12px Arial';
+                this.ctx.textAlign = 'left';
+                this.ctx.textBaseline = 'top';
+                this.ctx.fillText('Масштаб: ${Math.round(this.scale * 100)}%', 10, 10);
+                
+                // Draw legend
+                if (schema.walls.length > 0) {
+                    this.drawLegend(schema);
+                }
+            },
+            
+            drawLegend(schema) {
+                const legendX = this.canvas.width - 200;
+                const legendY = 20;
+                const legendWidth = 180;
+                
+                // Legend background
+                this.ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+                this.ctx.fillRect(legendX, legendY, legendWidth, 120);
+                this.ctx.strokeStyle = '#d1d5db';
+                this.ctx.strokeRect(legendX, legendY, legendWidth, 120);
+                
+                // Legend title
+                this.ctx.fillStyle = '#374151';
+                this.ctx.font = 'bold 14px Arial';
+                this.ctx.textAlign = 'left';
+                this.ctx.fillText('Легенда панелей', legendX + 10, legendY + 20);
+                
+                // Color samples
+                const colors = schema.colors;
+                colors.forEach((color, index) => {
+                    const y = legendY + 40 + index * 15;
+                    
+                    // Color square
+                    this.ctx.fillStyle = color;
+                    this.ctx.fillRect(legendX + 10, y, 12, 12);
+                    this.ctx.strokeStyle = '#6b7280';
+                    this.ctx.strokeRect(legendX + 10, y, 12, 12);
+                    
+                    // Label
+                    this.ctx.fillStyle = '#4b5563';
+                    this.ctx.font = '12px Arial';
+                    this.ctx.fillText(`Тип панели ${index + 1}`, legendX + 30, y + 9);
+                });
+            },
+            
+            redraw() {
+                if (AppState.layoutSchema) {
+                    this.draw(AppState.layoutSchema);
+                }
+            },
+            
+            resetView() {
+                if (AppState.layoutSchema) {
+                    this.calculateInitialScale(AppState.layoutSchema);
+                    this.redraw();
+                }
+            }
+        };
+        
+        // Foundation Configuration
+        const FoundationConfig = {
+            init() {
+                const typeSelect = document.getElementById('foundation-type');
+                const depthInput = document.getElementById('foundation-depth');
+                
+                typeSelect.addEventListener('change', (e) => {
+                    AppState.foundationType = e.target.value;
+                    this.updateConfiguration();
+                });
+                
+                depthInput.addEventListener('input', (e) => {
+                    AppState.foundationDepth = parseInt(e.target.value) || 1000;
+                    this.updateConfiguration();
+                });
+            },
+            
+            updateConfiguration() {
+                // Recalculate if results exist
+                if (AppState.calculationResults) {
+                    AppState.layoutSchema = LayoutGenerator.generateSchema(AppState.calculationResults);
+                    CanvasRenderer.renderSchema(AppState.layoutSchema);
+                }
+            }
+        };
+        
+        // Application Initialization
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Initializing FormworkCalc Application...');
+            
+            // Initialize all components
+            APIKeyManager.load();
+            BlueprintUploader.init();
+            InventoryManager.init();
+            FoundationConfig.init();
+            CanvasRenderer.init();
+            
+            // Setup API key input
+            const apiKeyInput = document.getElementById('api-key');
+            const toggleBtn = document.getElementById('toggle-api-key');
+            
+            apiKeyInput.addEventListener('input', (e) => {
+                const apiKey = e.target.value.trim();
+                if (apiKey) {
+                    APIKeyManager.save(apiKey);
+                }
+            });
+            
+            toggleBtn.addEventListener('click', () => {
+                const isPassword = apiKeyInput.type === 'password';
+                apiKeyInput.type = isPassword ? 'text' : 'password';
+                toggleBtn.textContent = isPassword ? '🙈' : '👁️';
+            });
+            
+            // Set initial values with default API key
+            if (AppState.apiKey) {
+                apiKeyInput.value = AppState.apiKey;
+            }
+            
+            // Check for manual dimensions when calculate button might be needed
+            const checkAndCalculate = () => {
+                const manualDimensions = BlueprintUploader.getManualDimensions();
+                if (manualDimensions.length > 0) {
+                    AppState.wallDimensions = manualDimensions;
+                    Utils.showSuccess(`${manualDimensions.length} размеров стен введено вручную`);
+                    Utils.updateProgress(2);
+                    
+                    if (AppState.inventoryData.length > 0) {
+                        FormworkCalculator.calculate();
+                    }
+                }
+            };
+            
+            // Add calculate button for manual input
+            const manualForm = document.getElementById('manual-input-form');
+            const calculateBtn = document.createElement('button');
+            calculateBtn.textContent = 'Рассчитать расположение опалубки';
+            calculateBtn.className = 'w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors mt-2';
+            calculateBtn.addEventListener('click', checkAndCalculate);
+            manualForm.appendChild(calculateBtn);
+            
+            console.log('FormworkCalc Application Initialized Successfully');
+            Utils.showSuccess('Приложение готово к использованию');
+        });
+    </script>
+</body>
+</html>
